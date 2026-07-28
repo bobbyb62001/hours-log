@@ -78,6 +78,12 @@
     font-family: inherit;
   }
   #addBtn:hover { opacity: 0.9; }
+  .export-btn {
+    flex: 1; background: #12161D; border: 1px solid #2C3340; color: #C3C8D1;
+    border-radius: 6px; padding: 8px 10px; font-size: 12px; font-family: 'IBM Plex Mono', monospace;
+    cursor: pointer;
+  }
+  .export-btn:hover { border-color: #C9A227; color: #C9A227; }
   .error { color: #D9736B; font-size: 12px; margin-top: 8px; }
   .empty { text-align: center; color: #5B6472; font-size: 13px; padding: 24px 0; }
   .entry-row {
@@ -135,6 +141,38 @@
       <button id="addBtn">+ Log</button>
     </div>
     <div class="error" id="errorMsg"></div>
+  </div>
+
+  <div class="card" style="margin-bottom: 16px;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #7A8497; margin-bottom: 10px;">
+      IMPORT / CATCH UP
+    </div>
+    <textarea id="importBox" placeholder="Paste entries here, one per line:&#10;2026-07-01 — 9.50 hrs — optional note&#10;2026-07-02 — 10.00 hrs" rows="3" style="width:100%; background:#12161D; border:1px solid #2C3340; border-radius:6px; color:#E7E9EE; padding:8px 10px; font-size:12px; font-family:'IBM Plex Mono',monospace; resize:vertical; margin-bottom:8px;"></textarea>
+    <div class="row" style="margin-bottom: 0;">
+      <button id="importBtn" class="export-btn" style="background:#C9A227; color:#12161D; border-color:#C9A227;">Import entries</button>
+    </div>
+    <div class="error" id="importMsg"></div>
+  </div>
+
+  <div class="card" style="margin-bottom: 16px;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #7A8497; margin-bottom: 10px;">
+      EXPORT FOR TIME CARD
+    </div>
+    <div class="row">
+      <button id="copyListBtn" class="export-btn">Copy list</button>
+      <button id="copyTotalsBtn" class="export-btn">Copy totals only</button>
+    </div>
+    <div class="row" style="margin-bottom: 0;">
+      <button id="backupBtn" class="export-btn">Copy full backup (all months)</button>
+    </div>
+    <div class="error" id="copyMsg" style="color:#7FD99A;"></div>
+  </div>
+
+  <div id="missingDaysBox" class="card" style="display:none; margin-bottom: 16px; border-color:#3A3020;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #C9A227; margin-bottom: 8px;">
+      NO ENTRY LOGGED
+    </div>
+    <div id="missingDaysList" style="font-size: 13px; color: #C3C8D1; line-height: 1.6;"></div>
   </div>
 
   <div id="entriesList"></div>
@@ -248,6 +286,39 @@
         });
       });
     }
+
+    renderMissingDays(monthEntries);
+  }
+
+  // Flags weekdays (Mon-Fri) in the viewed month, up through today, that have no logged hours.
+  function renderMissingDays(monthEntries) {
+    const box = document.getElementById("missingDaysBox");
+    const list = document.getElementById("missingDaysList");
+    const [y, m] = viewMonth.split("-").map(Number);
+    const today = new Date();
+    const isCurrentOrPastMonth = viewMonth <= currentMonthKey();
+    if (!isCurrentOrPastMonth) { box.style.display = "none"; return; }
+
+    const lastDay = viewMonth === currentMonthKey()
+      ? today.getDate()
+      : new Date(y, m, 0).getDate();
+
+    const loggedDates = new Set(monthEntries.map(e => e.date));
+    const missing = [];
+    for (let d = 1; d <= lastDay; d++) {
+      const dateObj = new Date(y, m - 1, d);
+      const dow = dateObj.getDay();
+      if (dow === 0 || dow === 6) continue; // skip weekends
+      const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      if (!loggedDates.has(iso)) missing.push(iso);
+    }
+
+    if (missing.length === 0) {
+      box.style.display = "none";
+    } else {
+      box.style.display = "block";
+      list.textContent = missing.map(iso => formatDate(iso)).join("  ·  ");
+    }
   }
 
   function escapeHtml(str) {
@@ -292,6 +363,104 @@
     noteInput.value = "";
     render();
   }
+
+  const copyMsg = document.getElementById("copyMsg");
+  function flashCopyMsg(text) {
+    copyMsg.textContent = text;
+    setTimeout(() => { copyMsg.textContent = ""; }, 2500);
+  }
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        () => flashCopyMsg("Copied to clipboard."),
+        () => fallbackCopy(text)
+      );
+    } else {
+      fallbackCopy(text);
+    }
+  }
+  function fallbackCopy(text) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); flashCopyMsg("Copied to clipboard."); }
+    catch (e) { flashCopyMsg("Couldn't copy — long-press the text below to copy manually."); }
+    document.body.removeChild(ta);
+  }
+
+  document.getElementById("copyListBtn").addEventListener("click", () => {
+    const monthEntries = entries.filter(e => e.date.slice(0, 7) === viewMonth)
+      .sort((a, b) => (a.date < b.date ? -1 : 1));
+    if (monthEntries.length === 0) { flashCopyMsg("No entries this month to copy."); return; }
+    const lines = monthEntries.map(e =>
+      `${e.date}  —  ${Number(e.hours).toFixed(2)} hrs${e.note ? "  —  " + e.note : ""}`
+    );
+    copyText(lines.join("\n"));
+  });
+
+  document.getElementById("copyTotalsBtn").addEventListener("click", () => {
+    const monthEntries = entries.filter(e => e.date.slice(0, 7) === viewMonth)
+      .sort((a, b) => (a.date < b.date ? -1 : 1));
+    if (monthEntries.length === 0) { flashCopyMsg("No entries this month to copy."); return; }
+    // Combine multiple entries on the same day into one daily total.
+    const byDay = {};
+    monthEntries.forEach(e => { byDay[e.date] = (byDay[e.date] || 0) + Number(e.hours); });
+    const lines = Object.keys(byDay).sort().map(date => `${date}  —  ${byDay[date].toFixed(2)} hrs`);
+    copyText(lines.join("\n"));
+  });
+
+  document.getElementById("backupBtn").addEventListener("click", () => {
+    if (entries.length === 0) { flashCopyMsg("No entries logged yet."); return; }
+    const sorted = [...entries].sort((a, b) => (a.date < b.date ? -1 : 1));
+    const lines = sorted.map(e =>
+      `${e.date}  —  ${Number(e.hours).toFixed(2)} hrs${e.note ? "  —  " + e.note : ""}`
+    );
+    const header = `HOURS LOG BACKUP — exported ${todayISO()}\n${"-".repeat(40)}\n`;
+    copyText(header + lines.join("\n"));
+  });
+
+  const importMsg = document.getElementById("importMsg");
+  document.getElementById("importBtn").addEventListener("click", () => {
+    const raw = document.getElementById("importBox").value;
+    importMsg.style.color = "#D9736B";
+    if (!raw.trim()) { importMsg.textContent = "Paste some entries first."; return; }
+
+    const lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
+    let added = 0, skipped = 0;
+
+    lines.forEach(line => {
+      // Skip header/divider lines from a pasted backup export
+      if (/^HOURS LOG BACKUP/i.test(line) || /^-{5,}$/.test(line)) return;
+
+      const dateMatch = line.match(/(\d{4}-\d{2}-\d{2})/);
+      const hoursMatch = line.match(/(\d+(?:\.\d+)?)\s*hrs?/i);
+      if (!dateMatch || !hoursMatch) { skipped++; return; }
+
+      const date = dateMatch[1];
+      const hours = parseFloat(hoursMatch[1]);
+      if (!hours || hours <= 0) { skipped++; return; }
+
+      // Note = anything after the hours segment, past a separator
+      let note = "";
+      const afterHours = line.slice(line.indexOf(hoursMatch[0]) + hoursMatch[0].length);
+      const noteMatch = afterHours.match(/[—\-,]\s*(.+)/);
+      if (noteMatch) note = noteMatch[1].trim();
+
+      entries.push({ id: uid(), date, hours, note });
+      added++;
+    });
+
+    saveJSON(STORAGE_KEY, entries);
+    document.getElementById("importBox").value = "";
+    importMsg.style.color = added > 0 ? "#7FD99A" : "#D9736B";
+    importMsg.textContent = skipped > 0
+      ? `Imported ${added} ${added === 1 ? "entry" : "entries"}, skipped ${skipped} unrecognized line${skipped === 1 ? "" : "s"}.`
+      : `Imported ${added} ${added === 1 ? "entry" : "entries"}.`;
+    render();
+  });
 
   render();
 </script>
