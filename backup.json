@@ -1,0 +1,145 @@
+{
+  "entries": [
+    {
+      "id": "ms6poddpbgwkm",
+      "date": "2026-07-01",
+      "hours": 9.5,
+      "note": ""
+    },
+    {
+      "id": "ms6poddppjl3c",
+      "date": "2026-07-02",
+      "hours": 10,
+      "note": ""
+    },
+    {
+      "id": "ms6poddpiiz72",
+      "date": "2026-07-03",
+      "hours": 9,
+      "note": ""
+    },
+    {
+      "id": "ms6poddp1wsu7",
+      "date": "2026-07-06",
+      "hours": 8,
+      "note": ""
+    },
+    {
+      "id": "ms6poddpwesbs",
+      "date": "2026-07-07",
+      "hours": 8.5,
+      "note": ""
+    },
+    {
+      "id": "ms6poddpy8ika",
+      "date": "2026-07-08",
+      "hours": 7.5,
+      "note": ""
+    },
+    {
+      "id": "ms6poddptlzic",
+      "date": "2026-07-09",
+      "hours": 8.5,
+      "note": ""
+    },
+    {
+      "id": "ms6poddprar7j",
+      "date": "2026-07-10",
+      "hours": 8.5,
+      "note": ""
+    },
+    {
+      "id": "ms6poddpn1lr5",
+      "date": "2026-07-13",
+      "hours": 8,
+      "note": ""
+    },
+    {
+      "id": "ms6poddptht9a",
+      "date": "2026-07-14",
+      "hours": 7.5,
+      "note": ""
+    },
+    {
+      "id": "ms6poddpp5v6d",
+      "date": "2026-07-15",
+      "hours": 8.5,
+      "note": ""
+    },
+    {
+      "id": "ms6poddpwot1h",
+      "date": "2026-07-16",
+      "hours": 8,
+      "note": ""
+    },
+    {
+      "id": "ms6poddpy7vfy",
+      "date": "2026-07-17",
+      "hours": 7.5,
+      "note": ""
+    },
+    {
+      "id": "ms6poddp4tb58",
+      "date": "2026-07-20",
+      "hours": 7,
+      "note": ""
+    },
+    {
+      "id": "ms6poddpqvjzj",
+      "date": "2026-07-21",
+      "hours": 8,
+      "note": ""
+    },
+    {
+      "id": "ms6poddp3ksez",
+      "date": "2026-07-22",
+      "hours": 8,
+      "note": ""
+    },
+    {
+      "id": "ms6poddp3xs5h",
+      "date": "2026-07-23",
+      "hours": 8,
+      "note": ""
+    },
+    {
+      "id": "ms6poddp9yumf",
+      "date": "2026-07-24",
+      "hours": 8,
+      "note": ""
+    },
+    {
+      "id": "ms6poddpkejmc",
+      "date": "2026-07-27",
+      "hours": 8,
+      "note": ""
+    },
+    {
+      "id": "ms6polkbzid7u",
+      "date": "2026-07-29",
+      "hours": 8,
+      "note": ""
+    },
+    {
+      "id": "ms6porghklt0i",
+      "date": "2026-07-28",
+      "hours": 8,
+      "note": ""
+    }
+  ],
+  "targets": {
+    "2026-01": 160,
+    "2026-02": 152,
+    "2026-03": 176,
+    "2026-04": 176,
+    "2026-05": 160,
+    "2026-06": 168,
+    "2026-07": 184,
+    "2026-08": 168,
+    "2026-09": 168,
+    "2026-10": 168,
+    "2026-11": 152,
+    "2026-12": 176
+  },
+  "backedUpAt": "2026-07-30T00:42:27.119Z"
+}
