@@ -155,6 +155,32 @@
   </div>
 
   <div class="card" style="margin-bottom: 16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #7A8497;">
+        GITHUB BACKUP
+      </div>
+      <span id="ghStatusDot" style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:#7A8497;">not connected</span>
+    </div>
+    <div id="ghSetup">
+      <div class="row">
+        <input type="text" id="ghRepoInput" placeholder="username/repo (e.g. bobbyb62001/hours-log)" style="flex:1;" />
+      </div>
+      <div class="row" style="margin-bottom: 0;">
+        <input type="password" id="ghTokenInput" placeholder="Paste GitHub token" style="flex:1;" />
+        <button id="ghSaveBtn" class="export-btn" style="flex:0 0 auto; background:#C9A227; color:#12161D; border-color:#C9A227;">Save</button>
+      </div>
+    </div>
+    <div class="row" id="ghActions" style="display:none; margin-top:8px; margin-bottom:0;">
+      <button id="ghBackupBtn" class="export-btn" style="background:#C9A227; color:#12161D; border-color:#C9A227;">Backup now</button>
+      <button id="ghRestoreBtn" class="export-btn">Restore from GitHub</button>
+    </div>
+    <div class="error" id="ghMsg"></div>
+    <div id="ghForget" style="display:none; margin-top:6px;">
+      <button id="ghForgetBtn" style="background:none; border:none; color:#5B6472; font-size:11px; text-decoration:underline; cursor:pointer; font-family:inherit;">Disconnect / change token</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom: 16px;">
     <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #7A8497; margin-bottom: 10px;">
       EXPORT FOR TIME CARD
     </div>
@@ -462,6 +488,134 @@
     render();
   });
 
+  // ---- GitHub backup/restore ----
+  const GH_REPO_KEY = "hourslog.gh.repo";
+  const GH_TOKEN_KEY = "hourslog.gh.token";
+  const GH_BACKUP_PATH = "backup.json";
+
+  const ghSetup = document.getElementById("ghSetup");
+  const ghActions = document.getElementById("ghActions");
+  const ghForget = document.getElementById("ghForget");
+  const ghStatusDot = document.getElementById("ghStatusDot");
+  const ghMsg = document.getElementById("ghMsg");
+  const ghRepoInput = document.getElementById("ghRepoInput");
+  const ghTokenInput = document.getElementById("ghTokenInput");
+
+  function ghCreds() {
+    return { repo: localStorage.getItem(GH_REPO_KEY), token: localStorage.getItem(GH_TOKEN_KEY) };
+  }
+  function ghRefreshUI() {
+    const { repo, token } = ghCreds();
+    if (repo && token) {
+      ghSetup.style.display = "none";
+      ghActions.style.display = "flex";
+      ghForget.style.display = "block";
+      ghStatusDot.textContent = repo;
+      ghStatusDot.style.color = "#7FD99A";
+    } else {
+      ghSetup.style.display = "block";
+      ghActions.style.display = "none";
+      ghForget.style.display = "none";
+      ghStatusDot.textContent = "not connected";
+      ghStatusDot.style.color = "#7A8497";
+    }
+  }
+  function ghFlash(text, ok) {
+    ghMsg.style.color = ok ? "#7FD99A" : "#D9736B";
+    ghMsg.textContent = text;
+  }
+  function utf8ToBase64(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+  function base64ToUtf8(b64) {
+    return decodeURIComponent(escape(atob(b64)));
+  }
+
+  document.getElementById("ghSaveBtn").addEventListener("click", () => {
+    const repo = ghRepoInput.value.trim();
+    const token = ghTokenInput.value.trim();
+    if (!repo.includes("/")) { ghFlash("Repo should look like username/repo.", false); return; }
+    if (!token) { ghFlash("Paste your token first.", false); return; }
+    localStorage.setItem(GH_REPO_KEY, repo);
+    localStorage.setItem(GH_TOKEN_KEY, token);
+    ghTokenInput.value = "";
+    ghFlash("Connected.", true);
+    ghRefreshUI();
+  });
+
+  document.getElementById("ghForgetBtn").addEventListener("click", () => {
+    localStorage.removeItem(GH_REPO_KEY);
+    localStorage.removeItem(GH_TOKEN_KEY);
+    ghRepoInput.value = "";
+    ghFlash("Disconnected.", true);
+    ghRefreshUI();
+  });
+
+  document.getElementById("ghBackupBtn").addEventListener("click", async () => {
+    const { repo, token } = ghCreds();
+    ghFlash("Backing up...", true);
+    try {
+      const apiUrl = `https://api.github.com/repos/${repo}/contents/${GH_BACKUP_PATH}`;
+      // Check for existing file to get its sha (required to update rather than create)
+      let sha = null;
+      const getRes = await fetch(apiUrl, { headers: { Authorization: `Bearer ${token}` } });
+      if (getRes.status === 200) {
+        const getData = await getRes.json();
+        sha = getData.sha;
+      } else if (getRes.status !== 404) {
+        throw new Error(`Couldn't check existing file (status ${getRes.status}).`);
+      }
+
+      const payload = { entries, targets, backedUpAt: new Date().toISOString() };
+      const body = {
+        message: `Hours log backup — ${todayISO()}`,
+        content: utf8ToBase64(JSON.stringify(payload, null, 2)),
+      };
+      if (sha) body.sha = sha;
+
+      const putRes = await fetch(apiUrl, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!putRes.ok) {
+        const errData = await putRes.json().catch(() => ({}));
+        throw new Error(errData.message || `Backup failed (status ${putRes.status}).`);
+      }
+      ghFlash(`Backed up ${entries.length} entries to ${repo}.`, true);
+    } catch (err) {
+      ghFlash(err.message || "Backup failed. Check your token and repo name.", false);
+    }
+  });
+
+  document.getElementById("ghRestoreBtn").addEventListener("click", async () => {
+    const { repo, token } = ghCreds();
+    if (!confirm("This will merge entries from your GitHub backup into this device. Continue?")) return;
+    ghFlash("Restoring...", true);
+    try {
+      const apiUrl = `https://api.github.com/repos/${repo}/contents/${GH_BACKUP_PATH}`;
+      const res = await fetch(apiUrl, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 404) { ghFlash("No backup found in that repo yet.", false); return; }
+      if (!res.ok) throw new Error(`Restore failed (status ${res.status}).`);
+      const data = await res.json();
+      const payload = JSON.parse(base64ToUtf8(data.content));
+
+      const existingIds = new Set(entries.map(e => e.id));
+      let added = 0;
+      (payload.entries || []).forEach(e => {
+        if (!existingIds.has(e.id)) { entries.push(e); added++; }
+      });
+      targets = Object.assign({}, targets, payload.targets || {});
+      saveJSON(STORAGE_KEY, entries);
+      saveJSON(TARGETS_KEY, targets);
+      ghFlash(`Restored — added ${added} new ${added === 1 ? "entry" : "entries"}.`, true);
+      render();
+    } catch (err) {
+      ghFlash(err.message || "Restore failed.", false);
+    }
+  });
+
+  ghRefreshUI();
   render();
 </script>
 </body>
